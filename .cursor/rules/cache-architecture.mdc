@@ -1,0 +1,124 @@
+---
+description: 缓存架构规则 - Repository 层统一处理缓存，Logic 层禁止直接操作缓存
+alwaysApply: true
+---
+
+# 缓存架构规则
+
+**核心原则**：缓存逻辑统一在 Repository 层处理，Logic 层禁止直接操作缓存。
+
+## 架构分层
+
+```
+Logic 层（业务逻辑）
+  ↓ 调用
+Repository 层（数据访问 + 缓存管理）
+  ↓ 操作
+数据库 / 缓存
+```
+
+## 规则详解
+
+### ✅ 正确做法
+
+**Repository 层**：实现缓存逻辑
+
+```go
+// internal/db/user.go
+func (r *UserRepository) GetByID(ctx context.Context, id int) (*model.User, error) {
+    if r.userCache != nil {
+        return r.userCache.GetUserByID(ctx, id, func() (*model.User, error) {
+            return FirstOrNil[model.User](r.db.WithContext(ctx).Where("id = ?", id))
+        })
+    }
+    return FirstOrNil[model.User](r.db.WithContext(ctx).Where("id = ?", id))
+}
+
+func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
+    err := r.db.WithContext(ctx).Save(user).Error
+    if err != nil {
+        return err
+    }
+    // 更新成功后自动清除缓存
+    if r.userCache != nil {
+        r.userCache.DelUserByID(ctx, user.ID)
+    }
+    return nil
+}
+```
+
+**Logic 层**：直接调用 Repository
+
+```go
+// internal/logic/user/getUserByIDLogic.go
+func (l *GetUserByIDLogic) GetUserByID(req *types.GetUserByIDRequest) (*types.GetUserByIDResponse, error) {
+    // 直接调用 Repository，内部自动处理缓存
+    user, err := l.svcCtx.Repository.User.GetByID(l.ctx, req.ID)
+    if err != nil {
+        return nil, err
+    }
+    return &types.GetUserByIDResponse{User: ConvertUser(user)}, nil
+}
+```
+
+### ❌ 错误做法
+
+**重复的缓存调用**：
+
+```go
+// ❌ 错误：Logic 层手动调用缓存
+func (l *GetUserByIDLogic) GetUserByID(req *types.GetUserByIDRequest) (*types.GetUserByIDResponse, error) {
+    // 第一次缓存查询
+    user, err := l.svcCtx.UserCache.GetUserByID(l.ctx, req.ID, func() (*model.User, error) {
+        // Repository 内部又会进行第二次缓存查询（重复）
+        return l.svcCtx.Repository.User.GetByID(l.ctx, req.ID)
+    })
+    // ...
+}
+
+// ❌ 错误：Logic 层手动清除缓存
+func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) error {
+    // Repository.Update 内部已经清除缓存
+    err := userRepo.Update(l.ctx, user)
+    
+    // 重复清除缓存
+    l.svcCtx.UserCache.DelUserByID(l.ctx, req.ID)
+    return err
+}
+```
+
+## 适用范围
+
+此规则适用于所有实体的缓存操作：
+
+- `UserCache` - 用户缓存
+- `OrgCache` - 组织缓存
+- `RegionCache` - 区域缓存
+- 其他所有缓存
+
+## 检测方法
+
+在 Logic 层搜索以下模式，如果找到则违反规则：
+
+```bash
+# 查找 Logic 层直接使用缓存的代码
+grep -r "svcCtx\..*Cache\." internal/logic/
+
+# 应该返回 0 结果，否则需要重构
+```
+
+## 修复步骤
+
+发现违反规则时：
+
+1. 检查 Repository 层是否已实现缓存逻辑
+2. 如未实现，在 Repository 层添加缓存逻辑
+3. 移除 Logic 层中的缓存直接调用
+4. 验证功能正常
+
+## 优势
+
+- **消除重复** - 缓存操作只执行一次
+- **统一管理** - 缓存逻辑集中维护
+- **职责清晰** - Logic 层专注业务，Repository 层管理数据
+- **易于测试** - 缓存逻辑独立可测

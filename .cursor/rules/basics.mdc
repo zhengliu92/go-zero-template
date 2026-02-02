@@ -20,6 +20,17 @@ alwaysApply: true
 | `make run` | 启动服务 |
 | `make mt` | 整理 Go 模块依赖 |
 
+## Cursor Commands
+
+项目提供以下自定义命令（使用 `Ctrl+K` 或 `Cmd+K` 触发）：
+
+| 命令 | 用途 |
+|------|------|
+| `check-cache` | 检查缓存架构是否符合规范 |
+| `fix-cache` | 修复缓存架构违规问题 |
+| `guard` | 为接口添加权限检查 |
+| `opt` | 代码逻辑优化检查 |
+
 ## Context7 MCP
 
 查找库文档、API 参考、代码示例时使用：
