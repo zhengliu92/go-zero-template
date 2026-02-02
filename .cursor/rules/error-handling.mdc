@@ -1,0 +1,84 @@
+---
+alwaysApply: true
+---
+
+# 错误处理规则
+
+## HTTP 响应错误处理
+
+处理 HTTP 请求时，必须区分"资源不存在"（404）和其他错误（网络、权限等）。
+
+### 标准模式
+
+```go
+// 1. 发起 HTTP 请求
+resource, err := client.GetResource(token, id)
+
+// 2. 判断是否为 404 错误
+var respErr *types.ResponseError
+is404 := errors.As(err, &respErr) && respErr.Code == 404
+
+// 3. 如果是非 404 错误，直接返回
+if err != nil && !is404 {
+    return err
+}
+
+// 4. 处理资源不存在的情况（404 或 nil）
+if resource == nil || is404 {
+    // 创建资源 或 其他业务逻辑
+}
+```
+
+### 错误示例
+
+```go
+// ❌ 错误：把所有错误都当作"不存在"
+resource, err := client.GetResource(token, id)
+if err != nil || resource == nil {
+    // 网络错误也会走到这里，错误地创建资源
+    createResource()
+}
+
+// ❌ 错误：只检查 nil
+resource, err := client.GetResource(token, id)
+if resource == nil {
+    // 忽略了真实的错误
+    createResource()
+}
+```
+
+### 正确示例
+
+```go
+// ✅ 正确：区分 404 和其他错误
+user, err := h.requestClient.GetUserByID(token, userID)
+
+var respErr *types.ResponseError
+is404 := errors.As(err, &respErr) && respErr.Code == 404
+
+if err != nil && !is404 {
+    return err // 网络、权限等错误直接返回
+}
+
+if user == nil || is404 {
+    // 只在用户不存在时创建
+    return h.createUser(...)
+}
+
+// 用户存在，执行更新
+return h.updateUser(user, ...)
+```
+
+## 应用场景
+
+此模式适用于：
+
+- **用户同步**：查询用户是否存在，不存在则创建
+- **组织同步**：查询组织是否存在，不存在则创建
+- **资源查询**：任何需要"不存在即创建"的场景
+
+## 核心原则
+
+1. **404 是业务状态**：资源不存在是正常业务流程
+2. **其他错误是异常**：网络、权限、服务异常需要中断流程
+3. **使用 errors.As**：确保类型安全地判断错误码

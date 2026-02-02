@@ -1,0 +1,52 @@
+---
+alwaysApply: true
+---
+
+# 日志规则
+
+## Writer vs 普通日志
+
+`l.svcCtx.Writer` 会写入数据库+控制台，仅用于：
+
+| 使用 Writer | 使用普通日志 `l.Infof()` |
+|------------|------------------------|
+| 系统级错误（DB/Redis/JWT 失败） | 业务逻辑错误（用户不存在、密码错误） |
+| 关键用户操作（登录、注册、权限变更） | 调试信息、参数验证失败 |
+
+## log_type 固定值
+
+| 类型 | 场景 |
+|------|------|
+| `database` | 数据库错误 |
+| `redis` | Redis 错误 |
+| `system` | 其他系统错误 |
+| `user` | 用户操作审计 |
+| `permission` | 权限变更 |
+
+## 示例
+
+```go
+// ✅ 系统级错误：用 Writer
+l.svcCtx.Writer.Error("数据库查询失败",
+    writer.Field("log_type", "database"),
+    writer.Field("error", err.Error()),
+)
+
+// ✅ 关键操作：用 Writer
+l.svcCtx.Writer.Info("用户登录成功",
+    writer.Field("log_type", "user"),
+    writer.Field("user_id", userID),
+)
+
+// ✅ 业务错误：用普通日志
+l.Infof("用户不存在: %s", loginName)
+```
+
+## 特殊字段（存入独立数据库列）
+
+`trace`, `span`, `duration`, `log_type`, `user_id`
+
+## 禁止
+
+- 禁止 `fmt.Println` / `log.Printf`
+- 禁止打印敏感信息（密码、密钥）

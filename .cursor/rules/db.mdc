@@ -1,0 +1,124 @@
+---
+alwaysApply: true
+---
+
+# 数据库规则
+
+## 架构分层
+
+```
+Logic 层 → Repository 聚合 → 各实体 Repository → Helper 函数
+(internal/logic/)  (internal/db/repo.go)  (internal/db/*.go)  (internal/db/helper.go)
+```
+
+**核心规则**：Logic 层禁止直接使用 DB，必须通过 Repository。
+
+## Repository 使用
+
+```go
+// ✅ 正确：通过 Repository
+user, err := l.svcCtx.Repository.User.GetByLoginName(l.ctx, req.LoginName)
+
+// ❌ 错误：Logic 层直接用 DB
+err = l.svcCtx.DB.Where("login_name = ?", req.LoginName).First(&user).Error
+```
+
+## 单条查询必须用 Helper
+
+查询单条记录必须使用 `internal/db/helper.go` 中的函数：
+
+| 函数 | 说明 |
+|------|------|
+| `FirstOrNil[T]` | 按主键/唯一索引查询 |
+| `TakeOrNil[T]` | 不关心顺序 |
+| `LastOrNil[T]` | 取最新记录 |
+
+这些函数自动将 `gorm.ErrRecordNotFound` 转为 `nil, nil`。
+
+```go
+// Repository 方法示例
+func (r *UserRepository) GetByID(ctx context.Context, id int) (*model.User, error) {
+    return FirstOrNil[model.User](r.db.WithContext(ctx).Where("id = ?", id))
+}
+```
+
+## 数据库字段更新流程（必须遵循）
+
+**核心原则**：修改数据库字段后，必须同步更新 API 和业务逻辑。
+
+### 完整更新清单
+
+修改 `internal/models/*.go` 中的模型字段后，按顺序完成以下步骤：
+
+1. **更新 API 定义** (`api/*.api`)
+   - 更新对应的 Type 定义字段
+   - 更新相关的 Request 类型
+   - 更新相关的 Response 类型
+   - 添加或更新字段注释
+
+2. **重新生成代码**
+   ```bash
+   make gen
+   ```
+
+3. **更新 Repository** (`internal/db/*.go`)
+   - 如果新增字段需要查询，添加相应的 Repository 方法
+   - 更新现有查询方法的字段列表
+
+4. **更新 Logic 层** (`internal/logic/**/*.go`)
+   - 更新数据转换逻辑（convert.go）
+   - 更新创建/更新逻辑中的字段映射
+   - 确保新字段有默认值或验证逻辑
+
+5. **测试验证**
+   - 测试 API 请求/响应
+   - 验证数据库读写
+   - 检查字段是否正确序列化
+
+### 示例
+
+```go
+// 1. 修改 internal/models/cron.go
+type CronTask struct {
+    ID          int64  `gorm:"primaryKey"`
+    Name        string
+    RetryCount  int    // 新增字段
+}
+
+// 2. 更新 api/task.api
+type CronTask {
+    ID         int64  `json:"id"`         // 任务ID
+    Name       string `json:"name"`       // 任务名称
+    RetryCount int    `json:"retry_count"` // 重试次数
+}
+
+// 3. 运行 make gen
+
+// 4. 更新 internal/logic/task/convert.go
+func toTaskResponse(task *models.CronTask) *types.CronTask {
+    return &types.CronTask{
+        ID:         task.ID,
+        Name:       task.Name,
+        RetryCount: task.RetryCount, // 添加新字段映射
+    }
+}
+
+// 5. 更新 internal/logic/task/createCronTaskLogic.go
+task := &models.CronTask{
+    Name:       req.Name,
+    RetryCount: req.RetryCount, // 处理新字段
+}
+```
+
+### 常见遗漏
+
+- ❌ 只更新模型，忘记更新 API
+- ❌ 更新了 API，忘记运行 `make gen`
+- ❌ 忘记更新数据转换函数（convert.go）
+- ❌ 忘记更新创建/更新逻辑中的字段赋值
+
+## 添加新 Repository
+
+1. 创建 `internal/db/xxx.go`
+2. 在 `internal/db/repo.go` 的 `Repository` 结构体添加字段
+3. 在 `NewRepository` 中初始化

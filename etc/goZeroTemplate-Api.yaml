@@ -1,0 +1,35 @@
+Name: go_zero_template-api
+Host: 0.0.0.0
+Port: 8001
+Timeout: 60000
+MaxBytes: 524288000
+
+Postgres:
+  Host: localhost
+  Port: 5432
+  User: postgres
+  Password: ""
+  DBName: db
+  SSLMode: disable
+  LogLevel: error
+
+Redis:
+  Addr: localhost:6379
+  Password: ""
+  DB: 0
+
+Auth:
+  AccessSecret: ""
+
+Services:
+  UserService:
+    # TODO: host 后期切换为POD服务名
+    Host: localhost
+    Port: 8000
+    Path: /api/v1/user
+    SuperAdminUsername: ""
+    SuperAdminPassword: ""
+
+  
+      
+      

@@ -1,0 +1,78 @@
+---
+alwaysApply: true
+---
+
+# 代码复用规则
+
+**遵循 DRY 原则，复用已有接口和业务逻辑。**
+
+## 1. DRY 原则
+
+### 重复代码的信号
+- 多个函数有相同逻辑，只有接收者不同
+- 修改一处需要同步修改另一处
+
+### 提取位置
+
+| 重复场景 | 提取到 |
+|---------|-------|
+| 同一包内多个文件 | `helper.go` |
+| 跨包同一层级 | `internal/common/` |
+| 跨层级 | `internal/utils/` |
+
+### 示例
+
+```go
+// ❌ 错误：在多个文件中重复
+func (l *CreateUserLogic) syncManagerInfo(user *model.User) error { /* 50行 */ }
+func (l *UpdateUserLogic) syncManagerInfo(user *model.User) error { /* 相同的50行 */ }
+
+// ✅ 正确：提取到 helper.go
+func syncManagerInfo(ctx context.Context, svcCtx *svc.ServiceContext, user *model.User, trace string) error {
+    // 只维护一份
+}
+// 调用：syncManagerInfo(l.ctx, l.svcCtx, user, "CreateUser")
+```
+
+### 设计原则
+1. **参数化差异** - 不同之处作为参数传入
+2. **保持纯粹** - 不依赖特定接收者
+3. **命名清晰** - 私有函数名称明确
+4. **单一职责** - 函数职责单一明确
+
+## 2. 调用已有接口
+
+**优先调用已有 Logic 接口，不要重复实现业务逻辑。**
+
+### 何时必须调用已有接口
+- 需要触发相同业务逻辑（更新负责人、创建/更新/删除实体、权限变更）
+- 需要相同副作用（缓存清理、日志记录、关联数据同步）
+- 需要相同验证规则（数据检查、业务规则、权限检查）
+
+### 调用模式
+
+```go
+// 创建 Logic 实例并调用
+targetLogic := targetpackage.NewTargetLogic(l.ctx, l.svcCtx)
+resp, err := targetLogic.TargetMethod(&types.TargetRequest{...})
+if err != nil {
+    l.svcCtx.Writer.Error("调用接口失败", writer.Field("error", err.Error()))
+    return err
+}
+```
+
+## 检查清单
+
+- [ ] 是否有重复函数？能否提取到 helper.go？
+- [ ] 是否已有接口实现相同功能？调用是否更简单？
+- [ ] 重复实现是否会引入不一致风险？
+
+**发现重复，立即重构。**
+
+## 例外情况
+
+- 性能要求极高
+- 需要不同事务边界
+- 需要跳过某些验证
+
+注意：例外情况也要确保逻辑一致性。

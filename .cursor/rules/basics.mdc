@@ -1,0 +1,29 @@
+---
+alwaysApply: true
+---
+
+# 项目基础
+
+## 技术栈
+
+- **Web 框架**: Go-zero
+- **ORM**: GORM
+
+## Makefile 命令
+
+操作前必须参考 `makefile`：
+
+| 命令 | 用途 |
+|------|------|
+| `make gen` | 基于 API 文件生成 Go 代码 |
+| `make format` | 格式化 API 文件 |
+| `make run` | 启动服务 |
+| `make mt` | 整理 Go 模块依赖 |
+
+## Context7 MCP
+
+查找库文档、API 参考、代码示例时使用：
+
+1. `resolve-library-id` 解析库 ID
+2. `query-docs` 查询文档
+3. 每个问题最多调用 3 次

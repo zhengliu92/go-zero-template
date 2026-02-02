@@ -1,0 +1,52 @@
+/**
+* 定时任务服务 API 定义
+* 提供系统健康检查和外部服务通信功能
+*/
+syntax = "v1"
+
+// ==================== 系统相关 ====================
+// 健康检查请求
+type HealthRequest {}
+
+// 健康检查响应
+type HealthResponse {
+	Status string `json:"status"` // 服务状态: ok-正常, error-异常
+}
+
+@server (
+	group: system
+)
+service go_zero_template-api {
+	@doc (
+		summary:     "健康检查"
+		description: "检查服务运行状态，用于监控和负载均衡健康探测"
+	)
+	@handler HealthHandler
+	get /health returns (HealthResponse)
+}
+
+// ==================== 外部服务通信 ====================
+// Ping 用户服务请求
+type PingUserServiceRequest {}
+
+// Ping 用户服务响应
+type PingUserServiceResponse {
+	ID            int    `json:"id"` // 用户唯一标识
+	Name          string `json:"name"` // 用户姓名
+	SAPEmployeeID int    `json:"sap_employee_id"` // SAP 员工编号
+}
+
+@server (
+	prefix:     /api/v1/cron/ping
+	group:      ping
+	middleware: AuthMiddleware
+)
+service go_zero_template-api {
+	@doc (
+		summary:     "调用用户服务"
+		description: "测试与用户服务的连通性，获取用户基本信息"
+	)
+	@handler PingUserServiceHandler
+	get /user (PingUserServiceRequest) returns (PingUserServiceResponse)
+}
+
