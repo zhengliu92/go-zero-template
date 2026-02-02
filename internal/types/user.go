@@ -40,10 +40,10 @@ type UserBase struct {
 	CustomerID       *int   `json:"customer_id,omitempty"`
 	CustomerName     string `json:"customer_name,omitempty"`
 	EmployeeQY       string `json:"employee_qy,omitempty"`
-	IsInternal       bool   `json:"is_internal,omitempty"`
-	IsAutoAdd        bool   `json:"is_auto_add,omitempty"`
-	IsBackendSynced  bool   `json:"is_backend_synced,omitempty"`
-	IsManualUpdate   bool   `json:"is_manual_update,omitempty"`
+	IsInternal       *bool  `json:"is_internal,optional"`       // 是否内部员工
+	IsAutoAdd        *bool  `json:"is_auto_add,optional"`       // 是否自动添加
+	IsBackendSynced  *bool  `json:"is_backend_synced,optional"` // 是否后端已同步
+	IsManualUpdate   *bool  `json:"is_manual_update,optional"`  // 是否手动更新
 	Comment          string `json:"comment,omitempty"`
 }
 

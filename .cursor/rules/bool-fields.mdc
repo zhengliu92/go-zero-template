@@ -1,0 +1,109 @@
+# Bool 字段规则
+
+**核心原则**：所有 bool 字段必须使用 `*bool`。
+
+## 为什么
+
+普通 bool 无法区分"未传递"和"传递 false"：
+- `nil` = 未传递，不更新
+- `&true` = 明确设置为 true
+- `&false` = 明确设置为 false
+
+## 适用范围
+
+### API 定义 (`api/*.api`)
+
+```go
+type User {
+    IsInternal *bool `json:"is_internal"` // 是否内部员工
+}
+
+type UpdateUserRequest {
+    IsInternal *bool `json:"is_internal,optional"` // 是否内部员工
+}
+```
+
+### Model 定义 (`internal/model/*.go`)
+
+```go
+type User struct {
+    // ✅ 正确：使用 *bool，移除 default 标签
+    IsInternal *bool `gorm:"type:boolean" json:"is_internal"`
+}
+```
+
+**注意**：移除 `default` 标签（对指针无效），应用层处理默认值。
+
+## 使用模式
+
+### 创建：提供默认值
+
+```go
+user := &model.User{
+    IsInternal: boolWithDefault(req.IsInternal, true),  // 默认 true
+    IsAutoAdd:  boolWithDefault(req.IsAutoAdd, false),  // 默认 false
+}
+```
+
+### 更新：只更新非 nil
+
+```go
+if req.IsInternal != nil {
+    updateData["is_internal"] = req.IsInternal
+}
+```
+
+### 查询：三态过滤
+
+```go
+if filters.IsInternal != nil {
+    query = query.Where("is_internal = ?", *filters.IsInternal)
+}
+```
+
+## 辅助函数
+
+在 `internal/logic/user/helper.go`：
+
+```go
+// boolPtr 将 bool 转为 *bool
+func boolPtr(b bool) *bool {
+    return &b
+}
+
+// boolWithDefault 如果为 nil 返回默认值指针
+func boolWithDefault(b *bool, defaultValue bool) *bool {
+    if b == nil {
+        return &defaultValue
+    }
+    return b
+}
+```
+
+## 常见错误
+
+```go
+// ❌ 直接解引用（可能 panic）
+user.IsInternal = *req.IsInternal
+
+// ❌ 使用 default 标签
+IsInternal *bool `gorm:"type:boolean;default:true"`
+
+// ❌ 直接比较指针
+if req.IsInternal == &true { }
+
+// ✅ 正确做法
+user.IsInternal = boolWithDefault(req.IsInternal, true)
+if req.IsInternal != nil {
+    updateData["is_internal"] = req.IsInternal
+}
+```
+
+## 检查清单
+
+- [ ] API 定义使用 `*bool`
+- [ ] Model 定义使用 `*bool`
+- [ ] 移除 GORM `default` 标签
+- [ ] 创建逻辑使用 `boolWithDefault`
+- [ ] 更新逻辑检查 `!= nil`
+- [ ] 运行 `make gen` 重新生成代码
