@@ -88,6 +88,7 @@ SERVICE_NAME_FILES=(
 # 需要更新文件名引用的文件
 FILE_REFERENCE_FILES=(
     "makefile"
+    ".vscode/launch.json"
 )
 
 # 统计替换次数

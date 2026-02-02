@@ -10,7 +10,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cronService-Api.go"
+            "program": "${workspaceFolder}/goZeroTemplate-Api.go"
         }
     ]
 }
