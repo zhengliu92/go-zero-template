@@ -11,11 +11,13 @@ import (
 	"go-zero-template/internal/types"
 )
 
+// 调用用户服务
 func PingUserServiceHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.PingUserServiceRequest
 		if err := httpx.Parse(r, &req); err != nil {
-			res.Response(w, nil, res.ParseError)
+			// 输出详细的解析错误信息
+			res.Response(w, nil, err)
 			return
 		}
 
