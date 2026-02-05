@@ -37,6 +37,6 @@ func (l *PingUserServiceLogic) PingUserService(req *types.PingUserServiceRequest
 	return &types.PingUserServiceResponse{
 		ID:            user.ID,
 		Name:          user.Name,
-		SAPEmployeeID: user.SAPEmployeeID,
+		SAPEmployeeID: *user.SAPEmployeeID,
 	}, nil
 }
