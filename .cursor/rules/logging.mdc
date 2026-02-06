@@ -23,18 +23,37 @@ alwaysApply: true
 | `user` | 用户操作审计 |
 | `permission` | 权限变更 |
 
+## trace 字段命名规范
+
+**格式**: `模块名.方法名`
+
+必须明确标注操作的模块/数据库，避免不同模块有相同方法名时产生混淆。
+
+```go
+// ✅ 正确：明确标注模块
+writer.Field("trace", "Result.CreateResult")
+writer.Field("trace", "User.ListUsers")
+writer.Field("trace", "Org.UpdateOrg")
+
+// ❌ 错误：缺少模块前缀
+writer.Field("trace", "CreateResult")
+writer.Field("trace", "ListUsers")
+```
+
 ## 示例
 
 ```go
 // ✅ 系统级错误：用 Writer
 l.svcCtx.Writer.Error("数据库查询失败",
     writer.Field("log_type", "database"),
+    writer.Field("trace", "Result.ListResults"),
     writer.Field("error", err.Error()),
 )
 
 // ✅ 关键操作：用 Writer
 l.svcCtx.Writer.Info("用户登录成功",
     writer.Field("log_type", "user"),
+    writer.Field("trace", "User.Login"),
     writer.Field("user_id", userID),
 )
 
