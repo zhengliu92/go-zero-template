@@ -1,0 +1,32 @@
+# 序列化规则
+
+## JSON 序列化
+
+使用 `github.com/bytedance/sonic` 替代标准库 `encoding/json`。
+
+## 替换映射
+
+| 标准库 | Sonic |
+|---|---|
+| `json.Marshal` | `sonic.Marshal` |
+| `json.Unmarshal` | `sonic.Unmarshal` |
+| `json.MarshalIndent` | `sonic.ConfigDefault.MarshalIndent` |
+
+## 示例
+
+```go
+import "github.com/bytedance/sonic"
+
+// ✅ 正确：使用 sonic
+data, err := sonic.Marshal(obj)
+err = sonic.Unmarshal(data, &obj)
+
+// ❌ 错误：使用标准库
+data, err := json.Marshal(obj)
+err = json.Unmarshal(data, &obj)
+```
+
+## 优势
+
+- 性能提升 3-5 倍
+- API 完全兼容标准库
